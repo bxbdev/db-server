@@ -1,7 +1,7 @@
 /node_modules
 yarn.lock
 .env
-*.local
-*.prod
+*.development
+*.production
 
 ca.pem
