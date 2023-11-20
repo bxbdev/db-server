@@ -4,7 +4,13 @@ const cors = require("cors");
 const app = express();
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
+const { jwtVerify, SignJWT, importJWK } = require("jose");
+
 dotenv.config();
+
+// 用於簽名JWT的密鑰
+const secretKey = process.env.ACCESS_TOKEN_SECRET;
+const jwtKeyPromise = importJWK({ k: secretKey, alg: "HS256", kty: "oct" });
 
 app.use(cors());
 app.use(express.json());
@@ -16,6 +22,31 @@ app.get("/", (req, res) => {
     host: process.env.DB_HOST,
     port: process.env.PORT,
   });
+});
+
+app.get("/api/verifyToken", async (req, res, next) => {
+  const token = req.headers["authorization"]?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).send("Access Denied: No Token Provided");
+  }
+
+  try {
+    // 二個都是要用promise的寫法
+    const jwtKey = await jwtKeyPromise;
+    // 取得token，並將jwtKey傳入
+    const verifed = await jwtVerify(token, jwtKey);
+    // 將驗證的payload傳回
+    console.log(verifed);
+    req.user = verifed.payload;
+    // 回傳驗證成功
+    res.status(200).send("Token verified successfully");
+  } catch (err) {
+    console.error("Token verfication error: ", err);
+    if (err.code === "ERR_JWT_EXPIRED")
+      return res.status(401).send("Token has expired");
+    return res.status(400).send("Access Denied: Invalid Token");
+  }
 });
 
 app.post("/api/register", async (req, res) => {
@@ -63,6 +94,29 @@ app.post("/api/register", async (req, res) => {
   } finally {
     if (conn) await conn.release();
   }
+});
+
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
+  const [users] = await pool.query("SELECT * FROM users WHERE username = ?", [
+    username,
+  ]);
+
+  if (!users.length) return res.status(404).send("User not found.");
+
+  const user = users[0];
+  const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!passwordMatch) return res.status(401).send("Wrong password");
+
+  const jwtKey = await jwtKeyPromise;
+  const token = new SignJWT({ "user-id": user.id })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("30s"); // 設置token有效期限
+
+  const signedToken = await token.sign(jwtKey);
+  // console.log("Signed Token: ", signedToken);
+  res.status(200).json({ message: "Logined successfully", token: signedToken });
 });
 
 const port = 3030;
