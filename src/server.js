@@ -106,7 +106,7 @@ app.post("/api/login", async (req, res) => {
   const token = new SignJWT({ "user-id": user.id })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30s"); // 設置token有效期限
+    .setExpirationTime("8h"); // 設置token有效期限
 
   const signedToken = await token.sign(jwtKey);
   // console.log("Signed Token: ", signedToken);
