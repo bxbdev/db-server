@@ -4,6 +4,7 @@ const cors = require("cors");
 const app = express();
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
+const { v4: uuidv4 } = require("uuid");
 const { jwtVerify, SignJWT, importJWK } = require("jose");
 
 dotenv.config();
@@ -55,24 +56,9 @@ app.post("/api/register", async (req, res) => {
     conn = await pool.getConnection();
     const { username, password } = req.body;
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
-
-    const [tables] = await conn.query("SHOW TABLES LIKE 'users'");
-
-    if (tables.length === 0) {
-      await conn.query(`
-        CREATE TABLE users (
-          id INT NOT NULL AUTO_INCREMENT,
-          username VARCHAR(20) NOT NULL UNIQUE,
-          password VARCHAR(100) NOT NULL,
-          deleted TINYINT(1) DEFAULT 0,
-          created_at TIMESTAMP NOT NULL,
-          updated_at TIMESTAMP NULL,
-          PRIMARY KEY (id)
-        );
-      `);
-      console.log("The users table has been created successfully!");
-    }
+    const newUserId = uuidv4();
+    // Change to use NOW() instead of local timestamp
+    // const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     const [users] = await conn.query("SELECT * FROM users WHERE username = ?", [
       username,
@@ -83,8 +69,8 @@ app.post("/api/register", async (req, res) => {
     }
 
     await conn.query(
-      "INSERT INTO users (username, password, created_at) VALUES (?, ?, ?)",
-      [username, hashedPassword, createdAt]
+      "INSERT INTO users (id, username, password, created_at) VALUES (?, ?, ?, NOW())",
+      [newUserId, username, hashedPassword]
     );
 
     res.status(200).send("User created successfully!");
