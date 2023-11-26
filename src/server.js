@@ -6,6 +6,9 @@ const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
 const { jwtVerify, SignJWT, importJWK } = require("jose");
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
 
 dotenv.config();
 
@@ -23,6 +26,11 @@ app.get("/", (req, res) => {
     host: process.env.DB_HOST,
     port: process.env.PORT,
   });
+});
+
+const port = 3030;
+app.listen(port, () => {
+  console.log("Server is running on port: http://localhost:" + port);
 });
 
 app.get("/api/verifyToken", async (req, res, next) => {
@@ -75,10 +83,10 @@ app.post("/api/register", async (req, res) => {
 
     res.status(200).send("User created successfully!");
   } catch (error) {
-    console.log("An error occurred: ", error);
-    res.status(500).send("An error ocurred while creating the user.");
+    // 如果在執行 SQL 查詢或其他異步操作時出現錯誤，這些錯誤將被全局錯誤處理器捕獲。
+    next(error);
   } finally {
-    if (conn) await conn.release();
+    if (conn) conn.release();
   }
 });
 
@@ -105,7 +113,34 @@ app.post("/api/login", async (req, res) => {
   res.status(200).json({ message: "Logined successfully", token: signedToken });
 });
 
-const port = 3030;
-app.listen(port, () => {
-  console.log("Server is running on port: http://localhost:" + port);
+const uploadsDirectory = path.join(__dirname, "uploads");
+fs.existsSync(uploadsDirectory) ||
+  fs.mkdirSync(uploadsDirectory, {
+    recursive: true,
+  });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDirectory);
+  },
+  filename: (req, file, cb) => {
+    cb(
+      null,
+      file.filename + "-" + Date.now() + path.extname(file.originalname)
+    );
+  },
+});
+
+const upload = multer({ storage: storage });
+
+app.post("/api/upload", upload.single("file"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send("No file uploaded");
+  }
+  return res.status(200).send("File uploaded successfully!");
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send("An internal server error has occurred.");
 });
