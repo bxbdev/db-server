@@ -81,6 +81,11 @@ app.post("/api/register", async (req, res) => {
       [newUserId, username, hashedPassword]
     );
 
+    await conn.query(
+      "INSERT INTO user_profile (user_id, created_at) VALUES (?, NOW())",
+      [newUserId]
+    );
+
     res.status(200).send("User created successfully!");
   } catch (error) {
     // 如果在執行 SQL 查詢或其他異步操作時出現錯誤，這些錯誤將被全局錯誤處理器捕獲。
@@ -103,7 +108,7 @@ app.post("/api/login", async (req, res) => {
   if (!passwordMatch) return res.status(401).send("Wrong password");
 
   const jwtKey = await jwtKeyPromise;
-  const token = new SignJWT({ "user-id": user.id })
+  const token = new SignJWT({ userId: user.id })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("8h"); // 設置token有效期限
@@ -113,7 +118,7 @@ app.post("/api/login", async (req, res) => {
   res.status(200).json({ message: "Logined successfully", token: signedToken });
 });
 
-const uploadsDirectory = path.join(__dirname, "uploads");
+const uploadsDirectory = path.join(__dirname, "../uploads");
 fs.existsSync(uploadsDirectory) ||
   fs.mkdirSync(uploadsDirectory, {
     recursive: true,
@@ -126,19 +131,40 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     cb(
       null,
-      file.filename + "-" + Date.now() + path.extname(file.originalname)
+      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
     );
   },
 });
 
 const upload = multer({ storage: storage });
 
-app.post("/api/upload", upload.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send("No file uploaded");
+app.post("/api/upload", upload.single("file"), async (req, res, next) => {
+  try {
+    const userId = req.body.userId;
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    const uploadType = req.body.type;
+
+    if (!req.file) {
+      return res.status(400).send("No file uploaded");
+    }
+
+    if (uploadType === "avatar") {
+      await pool.query(
+        "UPDATE user_profile SET avatar_url = ? WHERE user_id = ?",
+        [avatarUrl, userId]
+      );
+    }
+    console.log("Uploaded file: ", avatarUrl);
+
+    return res
+      .status(200)
+      .send({ message: "Avatar uploaded successfully!", file: avatarUrl });
+  } catch (error) {
+    next(error);
   }
-  return res.status(200).send("File uploaded successfully!");
 });
+
+app.use("/uploads", express.static("uploads"));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
