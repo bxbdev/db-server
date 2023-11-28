@@ -3,5 +3,6 @@ yarn.lock
 .env
 *.development
 *.production
-
+/uploads
+*.jpg
 ca.pem

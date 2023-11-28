@@ -138,31 +138,53 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-app.post("/api/upload", upload.single("file"), async (req, res, next) => {
-  try {
-    const userId = req.body.userId;
-    const avatarUrl = `/uploads/${req.file.filename}`;
-    const uploadType = req.body.type;
+app.patch(
+  "/api/user-profile",
+  upload.single("file"),
+  async (req, res, next) => {
+    // console.log(req.body);
+    // console.log(req.file);
 
-    if (!req.file) {
-      return res.status(400).send("No file uploaded");
-    }
+    const {
+      userId,
+      nickname,
+      email,
+      bio,
+      website,
+      facebook,
+      instagram,
+      x,
+      threads,
+      language,
+      type,
+    } = req.body;
+    try {
+      const avatarUrl =
+        req.file && type === "avatar" ? `/uploads/${req.file.filename}` : null;
 
-    if (uploadType === "avatar") {
       await pool.query(
-        "UPDATE user_profile SET avatar_url = ? WHERE user_id = ?",
-        [avatarUrl, userId]
+        "UPDATE user_profile SET nickname = ?, email = ?, bio = ?, avatar_url = ?, website = ?, facebook = ?, instagram = ?, x = ?, threads = ?, language = ?, updated_at = NOW() WHERE user_id = ?",
+        [
+          nickname,
+          email,
+          bio,
+          avatarUrl,
+          website,
+          facebook,
+          instagram,
+          x,
+          threads,
+          language,
+          userId,
+        ]
       );
-    }
-    console.log("Uploaded file: ", avatarUrl);
 
-    return res
-      .status(200)
-      .send({ message: "Avatar uploaded successfully!", file: avatarUrl });
-  } catch (error) {
-    next(error);
+      res.status(200).send({ message: "User profile updated successfully" });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 app.use("/uploads", express.static("uploads"));
 
