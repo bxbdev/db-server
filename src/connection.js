@@ -18,11 +18,12 @@ const dbConfig = {
   queueLimit: 0,
 };
 
-if (env === "production") {
-  dbConfig.ssl = {
-    ca: fs.readFileSync("./ca.pem"),
-  };
-}
+// aiven配置需要ssl連線
+// if (env === "production") {
+//   dbConfig.ssl = {
+//     ca: fs.readFileSync("./ca.pem"),
+//   };
+// }
 
 const pool = mysql.createPool(dbConfig);
 module.exports = pool;

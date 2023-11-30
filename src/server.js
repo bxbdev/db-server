@@ -58,7 +58,7 @@ app.get("/api/verifyToken", async (req, res, next) => {
   }
 });
 
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", async (req, res, next) => {
   let conn;
   try {
     conn = await pool.getConnection();
@@ -73,7 +73,7 @@ app.post("/api/register", async (req, res) => {
     ]);
 
     if (users.length > 0) {
-      return res.status(400).send("Username already exists.");
+      return res.status(400).send({ message: "Username already exists." });
     }
 
     await conn.query(
@@ -86,7 +86,7 @@ app.post("/api/register", async (req, res) => {
       [newUserId]
     );
 
-    res.status(200).send("User created successfully!");
+    res.status(200).send({ message: "User created successfully." });
   } catch (error) {
     // 如果在執行 SQL 查詢或其他異步操作時出現錯誤，這些錯誤將被全局錯誤處理器捕獲。
     next(error);
@@ -101,11 +101,13 @@ app.post("/api/login", async (req, res) => {
     username,
   ]);
 
-  if (!users.length) return res.status(404).send("User not found.");
+  if (!users.length)
+    return res.status(404).send({ message: "User not found." });
 
   const user = users[0];
   const passwordMatch = await bcrypt.compare(password, user.password);
-  if (!passwordMatch) return res.status(401).send("Wrong password");
+  if (!passwordMatch)
+    return res.status(401).send({ message: "Wrong password" });
 
   const jwtKey = await jwtKeyPromise;
   const token = new SignJWT({ userId: user.id })
@@ -185,6 +187,25 @@ app.patch(
     }
   }
 );
+
+app.get("/api/user-profile", async (req, res, next) => {
+  const { userId } = req.body;
+  try {
+    const [userProfile] = await pool.query(
+      "SELECT * FROM user_profile WHERE user_id = ? ",
+      [userId]
+    );
+    res
+      .status(200)
+      .send({ message: "Get user profile successfully", data: userProfile });
+
+    if (userProfile.length === 0) {
+      return res.status(404).send("User profile not found.");
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.use("/uploads", express.static("uploads"));
 
