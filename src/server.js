@@ -189,19 +189,24 @@ app.patch(
 );
 
 app.get("/api/user-profile", async (req, res, next) => {
-  const { userId } = req.body;
+  const { userId } = req.query;
   try {
     const [userProfile] = await pool.query(
       "SELECT * FROM user_profile WHERE user_id = ? ",
       [userId]
     );
-    res
-      .status(200)
-      .send({ message: "Get user profile successfully", data: userProfile });
 
     if (userProfile.length === 0) {
       return res.status(404).send("User profile not found.");
     }
+
+    // console.log("userProfile: ", userProfile);
+    // console.log(userId);
+
+    res.status(200).send({
+      message: "Get user profile successfully",
+      userProfile: userProfile[0],
+    });
   } catch (error) {
     next(error);
   }
