@@ -131,10 +131,11 @@ const storage = multer.diskStorage({
     cb(null, uploadsDirectory);
   },
   filename: (req, file, cb) => {
-    cb(
-      null,
-      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
-    );
+    const ext =
+      file.mimetype.split("/")[1] === "jpeg"
+        ? "jpg"
+        : file.mimetype.split("/")[1];
+    cb(null, file.fieldname + "-" + Date.now() + "." + ext);
   },
 });
 
